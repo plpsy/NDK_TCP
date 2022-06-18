@@ -23,6 +23,7 @@
 #include "General.h"
 
 extern Int srioInit();
+extern void switchInit();
 
 // 平台信息
 platform_info  gPlatformInfo;
@@ -80,6 +81,8 @@ void EVM_init()
 int main()
 {
 	srioInit();
+
+	switchInit();
 
 	// 启动 SYS/BIOS 系统调度
 	BIOS_start ();

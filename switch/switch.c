@@ -9,13 +9,15 @@
 #include <serrno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <std.h>
+#include <ti/sysbios/knl/Task.h>
 
 #include <errno.h>
 #include <string.h>
 
-#include "mytypes.h"
-#include "rfd.h"
-#include "fetriod.h"
+#include "../fet/mytypes.h"
+#include "../fet/rfd.h"
+#include "../fet/fetriod.h"
 
 #define SW20_TO_SW40_PORT 5
 #define SW20_TO_DSP_PORT 10
@@ -33,36 +35,16 @@ typedef enum {
 	_PowerOn = 0
 } NodeStatus;
 
-unsigned char gNodesStatus[256] = {_PowerOff}
-
-Void switchMain(UArg a0, UArg a1)
-{
-	Task_sleep(1000);
-	cfgSWPaths();
-
-	while(1)
-	{
-		scanNewNodes();
-		Task_sleep(1000);
-	}
-}
-
-
-
-Void switchInit()
-{
-	/* Task 线程 */
-    Task_create(switchMain, NULL, NULL);
-}
+unsigned char gNodesStatus[256] = {_PowerOff};
 
 
 void cfgSW20Route(unsigned char destid, unsigned char port)
 {
 	UINT32 data;
 	data = destid << 24;
-	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x70, ePRIORITY_M, data, 1, 4, 0);
+	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x70, ePRIORITY_M, &data, 1, 4, 0);
 	data = port << 24;
-	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x74, ePRIORITY_M, data, 1, 4, 0);
+	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x74, ePRIORITY_M, &data, 1, 4, 0);
 }
 
 /*
@@ -94,10 +76,10 @@ void cfgSW40Route(unsigned char destid, unsigned char port)
 {
 	UINT32 data;
 	data = destid << 24;
-	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x70, ePRIORITY_M, data, 1, 4, 0);
+	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x70, ePRIORITY_M, &data, 1, 4, 0);
 
 	data = port << 24;
-	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x74, ePRIORITY_M, data, 1, 4, 0);
+	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x74, ePRIORITY_M, &data, 1, 4, 0);
 
 }
 
@@ -124,7 +106,7 @@ void cfgSWPaths()
 	// cfg nodes route connected to SW40 via SW40
 	for(port = 0; port < SW_TOTOL_PORTS; port++)
 	{
-		destid = SW40_BASE_ID + port
+		destid = SW40_BASE_ID + port;
 		cfgSW40Route(destid, port);
 	}
 
@@ -155,11 +137,10 @@ void enableSW40Port(unsigned char port)
 
 }
 
-void scanNewNodes()
+void addOrRemoveNodes()
 {
 	unsigned char port = 0;
 	unsigned char destid = 0;
-	unsigned char uchHopCount = 0;
 	UINT32 data = 0;
 
 	// scan SW20
@@ -170,7 +151,7 @@ void scanNewNodes()
 			continue;
 		}
 		destid = port;
-		frdMaintRead(0, 0, 20, SW20_HOPCOUT, 0x158 + 0x20*port, &data, 1, 4, 0);
+		frdMaintRead(0, 0, SW20_ID, SW20_HOPCOUT, (0x158 + 0x20*port), ePRIORITY_M, &data, 1, 4, 0);
 		if(data&0x2)
 		{
 			if(gNodesStatus[destid] == _PowerOff)
@@ -178,15 +159,20 @@ void scanNewNodes()
 				enableSW20Port(port);
 				cfgSW20Route(0xff, port);
 				data = destid<<16|destid;
-				frdMaintWrite(0, 0, 0xff, SW20_HOPCOUT+1, 0x60, ePRIORITY_M, data, 1, 4, 0);
+				frdMaintWrite(0, 0, 0xff, SW20_HOPCOUT+1, 0x60, ePRIORITY_M, &data, 1, 4, 0);
 				gNodesStatus[destid] = _PowerOn;
+
+				printf("SW20 add node id=%d\n", destid);
 			}
 		}
-		else {
+		else
+		{
 			if(gNodesStatus[destid] == _PowerOn)
 			{
 				disableSW20Port(port);
 				gNodesStatus[destid] = _PowerOff;
+
+				printf("SW20 remove node id=%d\n", destid);
 			}			
 		}
 	}
@@ -200,7 +186,7 @@ void scanNewNodes()
 			continue;
 		}
 		destid = SW40_BASE_ID + port;
-		frdMaintRead(0, 0, SW40_ID, SW40_HOPCOUT, 0x158 + 0x20*port, &data, 1, 4, 0);
+		frdMaintRead(0, 0, SW40_ID, SW40_HOPCOUT, (0x158 + 0x20*port), ePRIORITY_M, &data, 1, 4, 0);
 		if(data&0x2)
 		{
 			if(gNodesStatus[destid] == _PowerOff)
@@ -208,17 +194,41 @@ void scanNewNodes()
 				enableSW40Port(port);
 				cfgSW40Route(0xff, port);
 				data = destid<<16|destid;
-				uchHopCount = 1;
-				frdMaintWrite(0, 0, 0xff, SW40_HOPCOUT+1, 0x60, ePRIORITY_M, data, 1, 4, 0);
+				frdMaintWrite(0, 0, 0xff, SW40_HOPCOUT+1, 0x60, ePRIORITY_M, &data, 1, 4, 0);
 				gNodesStatus[destid] = _PowerOn;
+
+				printf("SW40 add node id=%d\n", destid);
 			}
 		}
-		else {
+		else
+		{
 			if(gNodesStatus[destid] == _PowerOn)
 			{
 				disableSW40Port(port);
 				gNodesStatus[destid] = _PowerOff;
+
+				printf("SW40 remove node id=%d\n", destid);
 			}			
 		}
 	}
+}
+
+
+Void switchMain(UArg a0, UArg a1)
+{
+	Task_sleep(1000);
+	cfgSWPaths();
+
+	while(1)
+	{
+		addOrRemoveNodes();
+		Task_sleep(1000);
+	}
+}
+
+
+
+Void switchInit()
+{
+    Task_create(switchMain, NULL, NULL);
 }

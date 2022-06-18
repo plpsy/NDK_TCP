@@ -113,8 +113,8 @@ void SRIOInit()
 	KickUnlock();
 
     // 配置 SRIO SerDes 时钟（250Mhz x 5 = 1.25GHz）
-    SRIOSerDesPLLSet(0x29); //2.5G
-//    SRIOSerDesPLLSet(0x51);// 5G
+//    SRIOSerDesPLLSet(0x29); //2.5G
+    SRIOSerDesPLLSet(0x51);// 5G
 
     // 配置 SRIO SerDes 发送 / 接收
     // 数据率 5Gbps（8B/10B）
