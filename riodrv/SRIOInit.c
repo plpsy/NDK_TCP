@@ -148,7 +148,7 @@ void SRIOInit()
     SRIODestinationOperationsSet(0x0000FC04);
 
     // 设置 SRIO 设备 ID
-    SRIODeviceIDSet(0xff, 0xffff);
+    SRIODeviceIDSet(0x0a, 0x000a);
 
     // 配置 TLM 基本路由信息
     SRIOTLMPortBaseRoutingSet(SRIO_Port0, 1, SRIO_Enable, SRIO_Enable, SRIO_Disable);

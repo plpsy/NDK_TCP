@@ -45,6 +45,13 @@ void cfgSW20Route(unsigned char destid, unsigned char port)
 	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x70, ePRIORITY_M, &data, 1, 4, 0);
 	data = port << 24;
 	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x74, ePRIORITY_M, &data, 1, 4, 0);
+
+	printf("cfgSW20Route(destid=%d, port=%d)\n", destid, port);
+
+	data = destid<<24;
+	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x70, ePRIORITY_M, &data, 1, 4, 0);
+
+	frdMaintRead(0, 0, SW20_ID, SW20_HOPCOUT, 0x74, ePRIORITY_M, &data, 1, 4, 0);
 }
 
 /*
@@ -81,6 +88,7 @@ void cfgSW40Route(unsigned char destid, unsigned char port)
 	data = port << 24;
 	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x74, ePRIORITY_M, &data, 1, 4, 0);
 
+	printf("cfgSW40Route(destid=%d, port=%d)\n", destid, port);
 }
 
 void cfgSWPaths()
@@ -115,6 +123,11 @@ void cfgSWPaths()
 	{
 		cfgSW40Route(destid, SW40_TO_SW20_PORT);
 	}
+
+	UINT32 data = 0x12345678;
+	frdMaintWrite(0, 0, SW40_ID, SW40_HOPCOUT, 0x6c, ePRIORITY_M, &data, 1, 4, 0);
+	data = 0x1111111;
+	frdMaintWrite(0, 0, SW20_ID, SW20_HOPCOUT, 0x6c, ePRIORITY_M, &data, 1, 4, 0);
 }
 
 void disableSW20Port(unsigned char port)
@@ -213,15 +226,18 @@ void addOrRemoveNodes()
 	}
 }
 
-
+int gswwait = 1;
 Void switchMain(UArg a0, UArg a1)
 {
-	Task_sleep(1000);
+	while(gswwait)
+	{
+		Task_sleep(1000);
+	}
 	cfgSWPaths();
 
 	while(1)
 	{
-		addOrRemoveNodes();
+	//	addOrRemoveNodes();
 		Task_sleep(1000);
 	}
 }
